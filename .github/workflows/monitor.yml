@@ -1,0 +1,55 @@
+name: Bike Marketplace Monitor
+
+on:
+  schedule:
+      - cron: '0 * * * *'   # Every hour
+        workflow_dispatch:       # Allow manual runs from GitHub UI
+
+        jobs:
+          monitor:
+              runs-on: ubuntu-latest
+                  permissions:
+                        contents: write      # Needed to commit seen_listings.json back to repo
+
+                            steps:
+                                  - name: Checkout repo
+                                          uses: actions/checkout@v4
+
+                                                - name: Set up Python
+                                                        uses: actions/setup-python@v5
+                                                                with:
+                                                                          python-version: '3.11'
+                                                                                    cache: 'pip'
+
+                                                                                          - name: Install Python dependencies
+                                                                                                  run: pip install -r requirements.txt
+
+                                                                                                        - name: Cache Playwright browsers
+                                                                                                                id: playwright-cache
+                                                                                                                        uses: actions/cache@v4
+                                                                                                                                with:
+                                                                                                                                          path: ~/.cache/ms-playwright
+                                                                                                                                                    key: playwright-chromium-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+                                                                                                                                                    
+                                                                                                                                                          - name: Install Playwright browser
+                                                                                                                                                                  if: steps.playwright-cache.outputs.cache-hit != 'true'
+                                                                                                                                                                          run: playwright install chromium
+                                                                                                                                                                          
+                                                                                                                                                                                - name: Install Playwright system dependencies
+                                                                                                                                                                                        run: playwright install-deps chromium
+                                                                                                                                                                                        
+                                                                                                                                                                                              - name: Run monitor
+                                                                                                                                                                                                      env:
+                                                                                                                                                                                                                FB_COOKIES: ${{ secrets.FB_COOKIES }}
+                                                                                                                                                                                                                          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+                                                                                                                                                                                                                                    GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+                                                                                                                                                                                                                                              SMS_RECIPIENT: ${{ secrets.SMS_RECIPIENT }}
+                                                                                                                                                                                                                                                      run: python monitor.py
+                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                            - name: Save seen listings back to repo
+                                                                                                                                                                                                                                                                    run: |
+                                                                                                                                                                                                                                                                              git config --global user.name 'github-actions[bot]'
+                                                                                                                                                                                                                                                                                        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+                                                                                                                                                                                                                                                                                                  git add seen_listings.json
+                                                                                                                                                                                                                                                                                                            git diff --staged --quiet || git commit -m "chore: update seen listings [skip ci]"
+                                                                                                                                                                                                                                                                                                                      git push
