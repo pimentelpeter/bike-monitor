@@ -55,8 +55,17 @@ def send_sms(message: str) -> None:
 
 
 def search_marketplace(page, query: str) -> list[dict]:
+    # Victoria BC latitude/longitude for 100km radius filter
+    # FB Marketplace uses latitude, longitude, radius (in km) URL params
     encoded = query.replace(" ", "%20")
-    url = f"https://www.facebook.com/marketplace/search/?query={encoded}&sortBy=creation_time_descend"
+    url = (
+        f"https://www.facebook.com/marketplace/search/"
+        f"?query={encoded}"
+        f"&sortBy=creation_time_descend"
+        f"&latitude=48.4284"
+        f"&longitude=-123.3656"
+        f"&radiusKm=100"
+    )
 
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
@@ -68,7 +77,7 @@ def search_marketplace(page, query: str) -> list[dict]:
     listings = []
     seen_ids: set[str] = set()
 
-    items = page.query_selector_all('a[href*="/marketplace/item/"]')
+    items = page.query_selector_all('a[href*="/marketplace/item/"]') 
     for item in items:
         href = item.get_attribute("href") or ""
         match = re.search(r"/marketplace/item/(\d+)", href)
@@ -122,6 +131,7 @@ def main() -> None:
 
         browser.close()
 
+    # Save before sending SMS so listings are always persisted even if SMS fails
     save_seen_listings(seen)
     print(f"\nFound {len(new_listings)} new listing(s).")
 
@@ -132,7 +142,11 @@ def main() -> None:
             f"{listing['title'][:80]}\n"
             f"{listing['url']}"
         )
-        send_sms(msg)
+        try:
+            send_sms(msg)
+            time.sleep(1)  # Avoid Gmail rate limiting
+        except Exception as e:
+            print(f"  SMS failed for listing {listing['id']}: {e}")
 
 
 if __name__ == "__main__":
