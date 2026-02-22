@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Facebook Marketplace bike monitor.
-Searches for specific bikes and sends SMS alerts via Twilio when new listings appear.
+Searches for specific bikes and sends SMS alerts when new listings appear.
 """
 
 import json
@@ -36,27 +36,47 @@ def save_seen_listings(seen: set) -> None:
         json.dump(sorted(seen), f, indent=2)
 
 
-def send_sms(message: str) -> None:
+SMS_LIMIT = 10  # Max alerts per run (avoids flooding on first run)
+
+
+def send_all_sms(listings: list[dict]) -> None:
+    """Send SMS for listings using a single reused SMTP connection.
+    URLs are omitted - Telus gateway silently drops messages containing them.
+    """
+    if not listings:
+        return
+
     gmail_address = os.environ["GMAIL_ADDRESS"]
     app_password = os.environ["GMAIL_APP_PASSWORD"]
-    to_address = os.environ["SMS_RECIPIENT"]  # e.g. 5551234567@vtext.com
+    to_address = os.environ["SMS_RECIPIENT"]  # e.g. 6041234567@msg.telus.com
 
-    msg = MIMEText(message)
-    msg["From"] = gmail_address
-    msg["To"] = to_address
-    msg["Subject"] = ""  # Carriers often prepend subject, keep it blank
-
+    sent = 0
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
         server.login(gmail_address, app_password)
-        server.sendmail(gmail_address, to_address, msg.as_string())
+        for listing in listings:
+            text = (
+                f"New bike on FB Marketplace!\n"
+                f"{listing['query']}\n"
+                f"{listing['title'][:100]}"
+            )
+            msg = MIMEText(text)
+            msg["From"] = gmail_address
+            msg["To"] = to_address
+            msg["Subject"] = ""
+            try:
+                server.sendmail(gmail_address, to_address, msg.as_string())
+                print(f"  SMS sent: {listing['query']} - {listing['title'][:50]}")
+                sent += 1
+            except Exception as e:
+                print(f"  SMS failed for {listing['id']}: {e}")
+            time.sleep(1)
 
-    print(f"SMS sent: {message[:80]}...")
+    print(f"SMS: {sent}/{len(listings)} sent.")
 
 
 def search_marketplace(page, query: str) -> list[dict]:
     # Victoria BC latitude/longitude for 100km radius filter
-    # FB Marketplace uses latitude, longitude, radius (in km) URL params
     encoded = query.replace(" ", "%20")
     url = (
         f"https://www.facebook.com/marketplace/search/"
@@ -77,7 +97,7 @@ def search_marketplace(page, query: str) -> list[dict]:
     listings = []
     seen_ids: set[str] = set()
 
-    items = page.query_selector_all('a[href*="/marketplace/item/"]') 
+    items = page.query_selector_all('a[href*="/marketplace/item/"]')
     for item in items:
         href = item.get_attribute("href") or ""
         match = re.search(r"/marketplace/item/(\d+)", href)
@@ -135,18 +155,10 @@ def main() -> None:
     save_seen_listings(seen)
     print(f"\nFound {len(new_listings)} new listing(s).")
 
-    for listing in new_listings:
-        msg = (
-            f"New bike on FB Marketplace!\n"
-            f"Search: {listing['query']}\n"
-            f"{listing['title'][:80]}\n"
-            f"{listing['url']}"
-        )
-        try:
-            send_sms(msg)
-            time.sleep(1)  # Avoid Gmail rate limiting
-        except Exception as e:
-            print(f"  SMS failed for listing {listing['id']}: {e}")
+    alerts = new_listings[:SMS_LIMIT]
+    if len(new_listings) > SMS_LIMIT:
+        print(f"Capping alerts at {SMS_LIMIT} (skipping {len(new_listings) - SMS_LIMIT}).")
+    send_all_sms(alerts)
 
 
 if __name__ == "__main__":
