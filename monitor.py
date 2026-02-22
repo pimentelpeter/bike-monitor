@@ -154,12 +154,16 @@ def search_marketplace(page, query: str) -> list[dict]:
         if not title_matches_query(text, query):
             continue  # Skip listings that don't mention the brand + model
 
+        img_el = item.query_selector("img")
+        image_url = img_el.get_attribute("src") if img_el else ""
+
         full_url = f"https://www.facebook.com/marketplace/item/{item_id}/"
         listings.append({
             "id": item_id,
             "title": text[:120] if text else query,
             "url": full_url,
             "query": query,
+            "image": image_url,
         })
 
     print(f"  Found {len(listings)} matching listing(s) for '{query}'")
