@@ -48,7 +48,7 @@ def send_all_sms(listings: list[dict]) -> None:
 
     gmail_address = os.environ["GMAIL_ADDRESS"]
     app_password = os.environ["GMAIL_APP_PASSWORD"]
-    to_address = os.environ["SMS_RECIPIENT"]  # e.g. 6041234567@msg.telus.com
+    to_address = os.environ["SMS_RECIPIENT"]
 
     sent = 0
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
@@ -73,6 +73,17 @@ def send_all_sms(listings: list[dict]) -> None:
             time.sleep(1)
 
     print(f"SMS: {sent}/{len(listings)} sent.")
+
+
+def title_matches_query(title: str, query: str) -> bool:
+    """Require the first two words of the query (brand + model) to appear in the title.
+
+    FB Marketplace returns many loosely related results; this filters out junk.
+    Example: query "Canyon Grizl small" -> title must contain "canyon" AND "grizl".
+    """
+    title_lower = title.lower()
+    key_words = query.lower().split()[:2]  # brand + model
+    return all(w in title_lower for w in key_words)
 
 
 def search_marketplace(page, query: str) -> list[dict]:
@@ -110,6 +121,9 @@ def search_marketplace(page, query: str) -> list[dict]:
         seen_ids.add(item_id)
 
         text = item.inner_text().strip().replace("\n", " ")
+        if not title_matches_query(text, query):
+            continue  # Skip listings that don't mention the brand + model
+
         full_url = f"https://www.facebook.com/marketplace/item/{item_id}/"
         listings.append({
             "id": item_id,
@@ -118,7 +132,7 @@ def search_marketplace(page, query: str) -> list[dict]:
             "query": query,
         })
 
-    print(f"  Found {len(listings)} listing(s) for '{query}'")
+    print(f"  Found {len(listings)} matching listing(s) for '{query}'")
     return listings
 
 
