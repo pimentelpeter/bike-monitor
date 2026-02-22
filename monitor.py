@@ -9,6 +9,8 @@ import os
 import re
 import smtplib
 import time
+import urllib.parse
+import urllib.request
 from email.mime.text import MIMEText
 
 from playwright.sync_api import sync_playwright
@@ -39,10 +41,20 @@ def save_seen_listings(seen: set) -> None:
 SMS_LIMIT = 10  # Max alerts per run (avoids flooding on first run)
 
 
-def send_all_sms(listings: list[dict]) -> None:
-    """Send SMS for listings using a single reused SMTP connection.
-    URLs are omitted - Telus gateway silently drops messages containing them.
+def shorten_url(url: str) -> str:
+    """Shorten via TinyURL's free API (no account needed).
+    Falls back to the full URL if the request fails.
     """
+    try:
+        api = f"https://tinyurl.com/api-create.php?url={urllib.parse.quote(url)}"
+        with urllib.request.urlopen(api, timeout=5) as resp:
+            return resp.read().decode().strip()
+    except Exception:
+        return url
+
+
+def send_all_sms(listings: list[dict]) -> None:
+    """Send SMS for listings using a single reused SMTP connection."""
     if not listings:
         return
 
@@ -55,10 +67,12 @@ def send_all_sms(listings: list[dict]) -> None:
         server.starttls()
         server.login(gmail_address, app_password)
         for listing in listings:
+            link = shorten_url(listing["url"])
             text = (
                 f"New bike on FB Marketplace!\n"
                 f"{listing['query']}\n"
-                f"{listing['title'][:100]}"
+                f"{listing['title'][:80]}\n"
+                f"{link}"
             )
             msg = MIMEText(text)
             msg["From"] = gmail_address
