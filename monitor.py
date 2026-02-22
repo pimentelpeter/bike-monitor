@@ -18,7 +18,7 @@ from playwright.sync_api import sync_playwright
 
 SEARCHES = [
     "Canyon Grizl small",
-    "Cannondale Topstone small",
+    "Cannondale Topstone medium",
     "Trek Checkpoint 54",
     "Specialized Diverge 54",
     "Giant Revolt small",
