@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bike Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1877f2;
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; }
+    header #meta { font-size: 0.85rem; opacity: 0.8; }
+
+    #filters {
+      padding: 0.75rem 1.5rem;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .filter-btn {
+      padding: 0.35rem 0.9rem;
+      border: 1.5px solid #ccc;
+      border-radius: 999px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .filter-btn.active {
+      background: #1877f2;
+      border-color: #1877f2;
+      color: #fff;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+      max-width: 1400px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #fff;
+      width: fit-content;
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      line-height: 1.4;
+      flex: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.25rem;
+    }
+
+    .card-date {
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    .view-link {
+      display: inline-block;
+      padding: 0.3rem 0.75rem;
+      background: #1877f2;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .view-link:hover { background: #1558b0; }
+
+    #empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #888;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Bike Monitor</h1>
+  <span id="meta">Loading…</span>
+</header>
+
+<div id="filters">
+  <button class="filter-btn active" data-query="all">All</button>
+</div>
+
+<div id="grid"></div>
+
+<script>
+  const COLOURS = [
+    "#e53935", "#8e24aa", "#1e88e5", "#43a047", "#f4511e",
+    "#6d4c41", "#00897b", "#3949ab"
+  ];
+  const queryColour = {};
+  let colourIdx = 0;
+
+  function getColour(query) {
+    if (!queryColour[query]) {
+      queryColour[query] = COLOURS[colourIdx % COLOURS.length];
+      colourIdx++;
+    }
+    return queryColour[query];
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function render(listings, activeQuery) {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    const sorted = [...listings].sort((a, b) =>
+      (b.found_at || "").localeCompare(a.found_at || "")
+    );
+    let shown = 0;
+    for (const l of sorted) {
+      if (activeQuery !== "all" && l.query !== activeQuery) continue;
+      shown++;
+      const card = document.createElement("div");
+      card.className = "card";
+      const colour = getColour(l.query);
+      card.innerHTML =
+        '<span class="badge" style="background:' + colour + '">' + escHtml(l.query) + '</span>' +
+        '<p class="card-title">' + escHtml(l.title) + '</p>' +
+        '<div class="card-footer">' +
+        '<span class="card-date">' + formatDate(l.found_at) + '</span>' +
+        '<a class="view-link" href="' + escHtml(l.url) + '" target="_blank" rel="noopener">View listing →</a>' +
+        '</div>';
+      grid.appendChild(card);
+    }
+    if (shown === 0) {
+      grid.innerHTML = '<p id="empty">No listings found.</p>';
+    }
+  }
+
+  async function init() {
+    let listings = [];
+    try {
+      const res = await fetch("listings.json");
+      if (!res.ok) throw new Error(res.status);
+      listings = await res.json();
+    } catch (e) {
+      document.getElementById("meta").textContent = "Could not load listings.json";
+      return;
+    }
+
+    const meta = document.getElementById("meta");
+    if (listings.length === 0) {
+      meta.textContent = "No listings yet.";
+    } else {
+      const newest = [...listings].sort((a, b) =>
+        (b.found_at || "").localeCompare(a.found_at || "")
+      )[0];
+      meta.textContent = listings.length + " listing" + (listings.length !== 1 ? "s" : "") + " · last updated " + formatDate(newest.found_at);
+    }
+
+    const queries = [...new Set(listings.map(l => l.query))];
+    const filters = document.getElementById("filters");
+    for (const q of queries) {
+      const btn = document.createElement("button");
+      btn.className = "filter-btn";
+      btn.dataset.query = q;
+      btn.textContent = q;
+      const colour = getColour(q);
+      btn.addEventListener("mouseenter", () => { if (!btn.classList.contains("active")) btn.style.borderColor = colour; });
+      btn.addEventListener("mouseleave", () => { if (!btn.classList.contains("active")) btn.style.borderColor = ""; });
+      filters.appendChild(btn);
+    }
+
+    let active = "all";
+    filters.addEventListener("click", e => {
+      const btn = e.target.closest(".filter-btn");
+      if (!btn) return;
+      filters.querySelectorAll(".filter-btn").forEach(b => {
+        b.classList.remove("active");
+        b.style.background = "";
+        b.style.borderColor = "";
+        b.style.color = "";
+      });
+      btn.classList.add("active");
+      if (btn.dataset.query !== "all") {
+        const c = getColour(btn.dataset.query);
+        btn.style.background = c;
+        btn.style.borderColor = c;
+        btn.style.color = "#fff";
+      }
+      active = btn.dataset.query;
+      render(listings, active);
+    });
+
+    render(listings, active);
+  }
+
+  init();
+</script>
+</body>
+</html>
