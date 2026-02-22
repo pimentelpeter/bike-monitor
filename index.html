@@ -25,13 +25,21 @@
     header h1 { font-size: 1.4rem; font-weight: 700; }
     header #meta { font-size: 0.85rem; opacity: 0.8; }
 
-    #filters {
+    #toolbar {
       padding: 0.75rem 1.5rem;
       background: #fff;
       border-bottom: 1px solid #e0e0e0;
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    #filters {
+      display: flex;
+      flex-wrap: wrap;
       gap: 0.5rem;
+      flex: 1;
     }
 
     .filter-btn {
@@ -49,9 +57,44 @@
       color: #fff;
     }
 
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    #view-toggle {
+      display: flex;
+      border: 1.5px solid #ccc;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .view-btn {
+      padding: 0.3rem 0.55rem;
+      border: none;
+      background: #fff;
+      cursor: pointer;
+      color: #666;
+      line-height: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .view-btn + .view-btn { border-left: 1px solid #ccc; }
+    .view-btn.active { background: #1877f2; color: #fff; }
+
+    #sort-select {
+      padding: 0.32rem 0.6rem;
+      border: 1.5px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    /* ── Card grid ── */
     #grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 1rem;
       padding: 1.25rem 1.5rem;
       max-width: 1400px;
@@ -61,10 +104,34 @@
       background: #fff;
       border-radius: 10px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      padding: 1rem;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+    }
+
+    .card-img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      display: block;
+      background: #eee;
+    }
+    .card-img-placeholder {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+    }
+
+    .card-body {
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      flex: 1;
     }
 
     .badge {
@@ -75,10 +142,11 @@
       font-weight: 600;
       color: #fff;
       width: fit-content;
+      white-space: nowrap;
     }
 
     .card-title {
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       line-height: 1.4;
       flex: 1;
     }
@@ -90,10 +158,7 @@
       margin-top: 0.25rem;
     }
 
-    .card-date {
-      font-size: 0.75rem;
-      color: #888;
-    }
+    .card-date { font-size: 0.75rem; color: #888; }
 
     .view-link {
       display: inline-block;
@@ -104,8 +169,71 @@
       text-decoration: none;
       font-size: 0.8rem;
       font-weight: 500;
+      white-space: nowrap;
     }
     .view-link:hover { background: #1558b0; }
+
+    /* ── List view ── */
+    #grid.list-view {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      max-width: 100%;
+    }
+
+    .card.list-card {
+      border-radius: 0;
+      box-shadow: none;
+      border-bottom: 1px solid #e8e8e8;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 1.5rem;
+    }
+
+    .list-img {
+      width: 72px;
+      height: 54px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: #eee;
+      flex-shrink: 0;
+      display: block;
+    }
+    .list-img-placeholder {
+      width: 72px;
+      height: 54px;
+      border-radius: 6px;
+      background: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+
+    .list-body {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .list-title {
+      font-size: 0.88rem;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .list-date {
+      font-size: 0.75rem;
+      color: #888;
+      flex-shrink: 0;
+    }
 
     #empty {
       grid-column: 1/-1;
@@ -114,6 +242,7 @@
       color: #888;
       font-size: 1rem;
     }
+    #grid.list-view #empty { padding: 3rem 1.5rem; }
   </style>
 </head>
 <body>
@@ -123,8 +252,34 @@
   <span id="meta">Loading…</span>
 </header>
 
-<div id="filters">
-  <button class="filter-btn active" data-query="all">All</button>
+<div id="toolbar">
+  <div id="filters">
+    <button class="filter-btn active" data-query="all">All</button>
+  </div>
+  <div id="controls">
+    <div id="view-toggle">
+      <button id="btn-card" class="view-btn active" title="Card view">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <rect x="1" y="1" width="6" height="6" rx="1"/>
+          <rect x="9" y="1" width="6" height="6" rx="1"/>
+          <rect x="1" y="9" width="6" height="6" rx="1"/>
+          <rect x="9" y="9" width="6" height="6" rx="1"/>
+        </svg>
+      </button>
+      <button id="btn-list" class="view-btn" title="List view">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <rect x="1" y="2" width="14" height="2.5" rx="1.25"/>
+          <rect x="1" y="6.75" width="14" height="2.5" rx="1.25"/>
+          <rect x="1" y="11.5" width="14" height="2.5" rx="1.25"/>
+        </svg>
+      </button>
+    </div>
+    <select id="sort-select">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="brand">Brand A–Z</option>
+    </select>
+  </div>
 </div>
 
 <div id="grid"></div>
@@ -162,30 +317,84 @@
       .replace(/"/g, "&quot;");
   }
 
-  function render(listings, activeQuery) {
+  function makePlaceholder(cls) {
+    const d = document.createElement("div");
+    d.className = cls;
+    d.textContent = "🚲";
+    return d.outerHTML;
+  }
+
+  function thumbCard(listing) {
+    if (listing.image) {
+      return `<img class="card-img" src="${escHtml(listing.image)}" alt=""
+        onerror="this.outerHTML='${makePlaceholder("card-img-placeholder")}'">`;
+    }
+    return makePlaceholder("card-img-placeholder");
+  }
+
+  function thumbList(listing) {
+    if (listing.image) {
+      return `<img class="list-img" src="${escHtml(listing.image)}" alt=""
+        onerror="this.outerHTML='${makePlaceholder("list-img-placeholder")}'">`;
+    }
+    return makePlaceholder("list-img-placeholder");
+  }
+
+  function sortListings(listings, sortBy) {
+    const arr = [...listings];
+    if (sortBy === "newest") {
+      arr.sort((a, b) => (b.found_at || "").localeCompare(a.found_at || ""));
+    } else if (sortBy === "oldest") {
+      arr.sort((a, b) => (a.found_at || "").localeCompare(b.found_at || ""));
+    } else if (sortBy === "brand") {
+      arr.sort((a, b) => (a.query || "").localeCompare(b.query || ""));
+    }
+    return arr;
+  }
+
+  function render(listings, activeQuery, view, sortBy) {
     const grid = document.getElementById("grid");
     grid.innerHTML = "";
-    const sorted = [...listings].sort((a, b) =>
-      (b.found_at || "").localeCompare(a.found_at || "")
-    );
-    let shown = 0;
-    for (const l of sorted) {
-      if (activeQuery !== "all" && l.query !== activeQuery) continue;
-      shown++;
-      const card = document.createElement("div");
-      card.className = "card";
-      const colour = getColour(l.query);
-      card.innerHTML =
-        '<span class="badge" style="background:' + colour + '">' + escHtml(l.query) + '</span>' +
-        '<p class="card-title">' + escHtml(l.title) + '</p>' +
-        '<div class="card-footer">' +
-        '<span class="card-date">' + formatDate(l.found_at) + '</span>' +
-        '<a class="view-link" href="' + escHtml(l.url) + '" target="_blank" rel="noopener">View listing →</a>' +
-        '</div>';
-      grid.appendChild(card);
+    grid.className = view === "list" ? "list-view" : "";
+
+    const sorted = sortListings(listings, sortBy);
+    const filtered = activeQuery === "all" ? sorted : sorted.filter(l => l.query === activeQuery);
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<p id="empty">No listings found.</p>`;
+      return;
     }
-    if (shown === 0) {
-      grid.innerHTML = '<p id="empty">No listings found.</p>';
+
+    for (const l of filtered) {
+      const colour = getColour(l.query);
+      const card = document.createElement("div");
+
+      if (view === "list") {
+        card.className = "card list-card";
+        card.innerHTML = `
+          ${thumbList(l)}
+          <div class="list-body">
+            <span class="badge" style="background:${colour}">${escHtml(l.query)}</span>
+            <span class="list-title">${escHtml(l.title)}</span>
+          </div>
+          <span class="list-date">${formatDate(l.found_at)}</span>
+          <a class="view-link" href="${escHtml(l.url)}" target="_blank" rel="noopener">View →</a>
+        `;
+      } else {
+        card.className = "card";
+        card.innerHTML = `
+          ${thumbCard(l)}
+          <div class="card-body">
+            <span class="badge" style="background:${colour}">${escHtml(l.query)}</span>
+            <p class="card-title">${escHtml(l.title)}</p>
+            <div class="card-footer">
+              <span class="card-date">${formatDate(l.found_at)}</span>
+              <a class="view-link" href="${escHtml(l.url)}" target="_blank" rel="noopener">View listing →</a>
+            </div>
+          </div>
+        `;
+      }
+      grid.appendChild(card);
     }
   }
 
@@ -207,9 +416,10 @@
       const newest = [...listings].sort((a, b) =>
         (b.found_at || "").localeCompare(a.found_at || "")
       )[0];
-      meta.textContent = listings.length + " listing" + (listings.length !== 1 ? "s" : "") + " · last updated " + formatDate(newest.found_at);
+      meta.textContent = `${listings.length} listing${listings.length !== 1 ? "s" : ""} · last updated ${formatDate(newest.found_at)}`;
     }
 
+    // Filter buttons
     const queries = [...new Set(listings.map(l => l.query))];
     const filters = document.getElementById("filters");
     for (const q of queries) {
@@ -224,6 +434,9 @@
     }
 
     let active = "all";
+    let view = "card";
+    let sortBy = "newest";
+
     filters.addEventListener("click", e => {
       const btn = e.target.closest(".filter-btn");
       if (!btn) return;
@@ -241,10 +454,29 @@
         btn.style.color = "#fff";
       }
       active = btn.dataset.query;
-      render(listings, active);
+      render(listings, active, view, sortBy);
     });
 
-    render(listings, active);
+    document.getElementById("btn-card").addEventListener("click", () => {
+      view = "card";
+      document.getElementById("btn-card").classList.add("active");
+      document.getElementById("btn-list").classList.remove("active");
+      render(listings, active, view, sortBy);
+    });
+
+    document.getElementById("btn-list").addEventListener("click", () => {
+      view = "list";
+      document.getElementById("btn-list").classList.add("active");
+      document.getElementById("btn-card").classList.remove("active");
+      render(listings, active, view, sortBy);
+    });
+
+    document.getElementById("sort-select").addEventListener("change", e => {
+      sortBy = e.target.value;
+      render(listings, active, view, sortBy);
+    });
+
+    render(listings, active, view, sortBy);
   }
 
   init();
