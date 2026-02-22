@@ -52,7 +52,7 @@ def save_all_listings(listings: list) -> None:
         json.dump(listings, f, indent=2)
 
 
-SMS_LIMIT = 0  # Temporarily 0 to backfill listings.json without sending SMS
+SMS_LIMIT = 10
 
 
 def shorten_url(url: str) -> str:
