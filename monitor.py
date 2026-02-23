@@ -83,12 +83,10 @@ def send_all_sms(listings: list[dict]) -> None:
         server.starttls()
         server.login(gmail_address, app_password)
         for listing in listings:
-            link = shorten_url(listing["url"])
             text = (
                 f"New bike on FB Marketplace!\n"
                 f"{listing['query']}\n"
-                f"{listing['title'][:80]}\n"
-                f"{link}"
+                f"{listing['title'][:80]}"
             )
             msg = MIMEText(text)
             msg["From"] = gmail_address
