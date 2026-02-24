@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Facebook Marketplace bike monitor.
-Searches for specific bikes and sends SMS alerts via Twilio when new listings appear.
+Searches for specific bikes and sends email alerts when new listings appear.
 """
 
 import json
@@ -9,8 +9,6 @@ import os
 import re
 import smtplib
 import time
-import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from email.mime.text import MIMEText
 
@@ -52,55 +50,37 @@ def save_all_listings(listings: list) -> None:
         json.dump(listings, f, indent=2)
 
 
-SMS_LIMIT = 10
-
-
-def shorten_url(url: str) -> str:
-    """Shorten via TinyURL's free API (no account needed).
-    Falls back to the full URL if the request fails.
-    """
-    try:
-        api = f"https://tinyurl.com/api-create.php?url={urllib.parse.quote(url)}"
-        with urllib.request.urlopen(api, timeout=5) as resp:
-            return resp.read().decode().strip()
-    except Exception:
-        return url
-
-
-def send_all_sms(listings: list[dict]) -> None:
-    """Send SMS for listings using a single reused SMTP connection.
-    URLs are omitted — Telus's gateway silently drops messages containing them.
-    """
+def send_email_alert(listings: list[dict]) -> None:
+    """Send a single digest email to the configured Gmail address."""
     if not listings:
         return
 
     gmail_address = os.environ["GMAIL_ADDRESS"]
     app_password = os.environ["GMAIL_APP_PASSWORD"]
-    to_address = os.environ["SMS_RECIPIENT"]  # e.g. 6041234567@msg.telus.com
 
-    sent = 0
+    lines = []
+    for listing in listings:
+        price_part = f"  {listing['price']}" if listing.get("price") else ""
+        lines.append(f"{listing['query']}{price_part}")
+        lines.append(f"  {listing['title'][:100]}")
+        lines.append(f"  {listing['url']}")
+        lines.append("")
+
+    body = "\n".join(lines).strip()
+    n = len(listings)
+    subject = f"New bike alert: {n} listing{'s' if n != 1 else ''} on FB Marketplace"
+
+    msg = MIMEText(body)
+    msg["From"] = gmail_address
+    msg["To"] = gmail_address
+    msg["Subject"] = subject
+
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
         server.login(gmail_address, app_password)
-        for listing in listings:
-            text = (
-                f"New bike on FB Marketplace!\n"
-                f"{listing['query']}\n"
-                f"{listing['title'][:80]}"
-            )
-            msg = MIMEText(text)
-            msg["From"] = gmail_address
-            msg["To"] = to_address
-            msg["Subject"] = ""
-            try:
-                server.sendmail(gmail_address, to_address, msg.as_string())
-                print(f"  SMS sent: {listing['query']} – {listing['title'][:50]}")
-                sent += 1
-            except Exception as e:
-                print(f"  SMS failed for {listing['id']}: {e}")
-            time.sleep(1)
+        server.sendmail(gmail_address, gmail_address, msg.as_string())
 
-    print(f"SMS: {sent}/{len(listings)} sent.")
+    print(f"Email alert sent: {n} listing(s).")
 
 
 def title_matches_query(title: str, query: str) -> bool:
@@ -204,15 +184,12 @@ def main() -> None:
 
         browser.close()
 
-    # Save before sending SMS so listings are always persisted even if SMS fails
+    # Save before sending email so listings are always persisted even if email fails
     save_seen_listings(seen)
     save_all_listings(all_listings)
     print(f"\nFound {len(new_listings)} new listing(s).")
 
-    alerts = new_listings[:SMS_LIMIT]
-    if len(new_listings) > SMS_LIMIT:
-        print(f"Capping alerts at {SMS_LIMIT} (skipping {len(new_listings) - SMS_LIMIT}).")
-    send_all_sms(alerts)
+    send_email_alert(new_listings)
 
 
 if __name__ == "__main__":
