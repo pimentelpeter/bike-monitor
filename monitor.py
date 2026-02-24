@@ -152,6 +152,9 @@ def search_marketplace(page, query: str) -> list[dict]:
         if not title_matches_query(text, query):
             continue  # Skip listings that don't mention the brand + model
 
+        price_match = re.search(r'(?:CA)?\$[\d,]+', text)
+        price = price_match.group(0) if price_match else ""
+
         img_el = item.query_selector("img")
         image_url = img_el.get_attribute("src") if img_el else ""
 
@@ -162,6 +165,7 @@ def search_marketplace(page, query: str) -> list[dict]:
             "url": full_url,
             "query": query,
             "image": image_url,
+            "price": price,
         })
 
     print(f"  Found {len(listings)} matching listing(s) for '{query}'")
