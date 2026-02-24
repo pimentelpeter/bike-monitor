@@ -43,7 +43,6 @@ jobs:
           FB_COOKIES: ${{ secrets.FB_COOKIES }}
           GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          SMS_RECIPIENT: ${{ secrets.SMS_RECIPIENT }}
         run: python monitor.py
 
       - name: Save seen listings back to repo
