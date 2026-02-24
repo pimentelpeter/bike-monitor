@@ -134,6 +134,13 @@
       flex: 1;
     }
 
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
     .badge {
       display: inline-block;
       padding: 0.2rem 0.65rem;
@@ -144,6 +151,7 @@
       width: fit-content;
       white-space: nowrap;
     }
+    .badge-new { background: #2e7d32; }
 
     .card-title {
       font-size: 0.88rem;
@@ -156,9 +164,17 @@
       align-items: center;
       justify-content: space-between;
       margin-top: 0.25rem;
+      gap: 0.5rem;
     }
 
-    .card-date { font-size: 0.75rem; color: #888; }
+    .card-date { font-size: 0.75rem; color: #888; flex-shrink: 0; }
+
+    .card-price {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      flex-shrink: 0;
+    }
 
     .view-link {
       display: inline-block;
@@ -170,6 +186,7 @@
       font-size: 0.8rem;
       font-weight: 500;
       white-space: nowrap;
+      margin-left: auto;
     }
     .view-link:hover { background: #1558b0; }
 
@@ -229,6 +246,13 @@
       text-overflow: ellipsis;
     }
 
+    .list-price {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      flex-shrink: 0;
+    }
+
     .list-date {
       font-size: 0.75rem;
       color: #888;
@@ -278,6 +302,8 @@
       <option value="newest">Newest first</option>
       <option value="oldest">Oldest first</option>
       <option value="brand">Brand A–Z</option>
+      <option value="price-asc">Price low–high</option>
+      <option value="price-desc">Price high–low</option>
     </select>
   </div>
 </div>
@@ -303,10 +329,20 @@
   function formatDate(iso) {
     if (!iso) return "";
     const d = new Date(iso);
+    const diffMs = Date.now() - d.getTime();
+    const diffH = diffMs / 3600000;
+    if (diffH < 1) return `${Math.max(1, Math.round(diffMs / 60000))}m ago`;
+    if (diffH < 24) return `${Math.floor(diffH)}h ago`;
+    if (diffH < 48) return "Yesterday";
     return d.toLocaleString(undefined, {
       month: "short", day: "numeric",
       hour: "2-digit", minute: "2-digit"
     });
+  }
+
+  function isNew(iso) {
+    if (!iso) return false;
+    return (Date.now() - new Date(iso).getTime()) < 86400000;
   }
 
   function escHtml(str) {
@@ -326,18 +362,25 @@
 
   function thumbCard(listing) {
     if (listing.image) {
+      const ph = makePlaceholder("card-img-placeholder").replace(/"/g, "&quot;");
       return `<img class="card-img" src="${escHtml(listing.image)}" alt=""
-        onerror="this.outerHTML='${makePlaceholder("card-img-placeholder")}'">`;
+        onerror="this.outerHTML='${ph}'">`;
     }
     return makePlaceholder("card-img-placeholder");
   }
 
   function thumbList(listing) {
     if (listing.image) {
+      const ph = makePlaceholder("list-img-placeholder").replace(/"/g, "&quot;");
       return `<img class="list-img" src="${escHtml(listing.image)}" alt=""
-        onerror="this.outerHTML='${makePlaceholder("list-img-placeholder")}'">`;
+        onerror="this.outerHTML='${ph}'">`;
     }
     return makePlaceholder("list-img-placeholder");
+  }
+
+  function parsePrice(p) {
+    if (!p) return null;
+    return parseFloat(p.replace(/[^0-9.]/g, "")) || null;
   }
 
   function sortListings(listings, sortBy) {
@@ -348,6 +391,10 @@
       arr.sort((a, b) => (a.found_at || "").localeCompare(b.found_at || ""));
     } else if (sortBy === "brand") {
       arr.sort((a, b) => (a.query || "").localeCompare(b.query || ""));
+    } else if (sortBy === "price-asc") {
+      arr.sort((a, b) => (parsePrice(a.price) ?? Infinity) - (parsePrice(b.price) ?? Infinity));
+    } else if (sortBy === "price-desc") {
+      arr.sort((a, b) => (parsePrice(b.price) ?? -Infinity) - (parsePrice(a.price) ?? -Infinity));
     }
     return arr;
   }
@@ -368,6 +415,7 @@
     for (const l of filtered) {
       const colour = getColour(l.query);
       const card = document.createElement("div");
+      const newBadge = isNew(l.found_at) ? `<span class="badge badge-new">New</span>` : "";
 
       if (view === "list") {
         card.className = "card list-card";
@@ -375,7 +423,9 @@
           ${thumbList(l)}
           <div class="list-body">
             <span class="badge" style="background:${colour}">${escHtml(l.query)}</span>
+            ${newBadge}
             <span class="list-title">${escHtml(l.title)}</span>
+            ${l.price ? `<span class="list-price">${escHtml(l.price)}</span>` : ""}
           </div>
           <span class="list-date">${formatDate(l.found_at)}</span>
           <a class="view-link" href="${escHtml(l.url)}" target="_blank" rel="noopener">View →</a>
@@ -385,10 +435,14 @@
         card.innerHTML = `
           ${thumbCard(l)}
           <div class="card-body">
-            <span class="badge" style="background:${colour}">${escHtml(l.query)}</span>
+            <div class="card-top">
+              <span class="badge" style="background:${colour}">${escHtml(l.query)}</span>
+              ${newBadge}
+            </div>
             <p class="card-title">${escHtml(l.title)}</p>
             <div class="card-footer">
               <span class="card-date">${formatDate(l.found_at)}</span>
+              ${l.price ? `<span class="card-price">${escHtml(l.price)}</span>` : ""}
               <a class="view-link" href="${escHtml(l.url)}" target="_blank" rel="noopener">View listing →</a>
             </div>
           </div>
@@ -408,6 +462,13 @@
       document.getElementById("meta").textContent = "Could not load listings.json";
       return;
     }
+
+    // Normalize legacy query labels
+    listings = listings.map(l =>
+      l.query === "Cannondale Topstone small"
+        ? { ...l, query: "Cannondale Topstone medium" }
+        : l
+    );
 
     const meta = document.getElementById("meta");
     if (listings.length === 0) {
